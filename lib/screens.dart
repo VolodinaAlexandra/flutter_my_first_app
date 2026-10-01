@@ -69,8 +69,7 @@ class _AuthPageState extends State<AuthPage> {
         );
         if (mounted && response.session == null) {
           setState(
-            () =>
-                _message = 'Аккаунт создан. Подтвердите почту и затем войдите.',
+            () => _message = 'Аккаунт создан, но автоматический вход недоступен. Обратитесь к администратору приложения.',
           );
         }
       } else {
@@ -100,7 +99,7 @@ class _AuthPageState extends State<AuthPage> {
       return 'Этот email уже зарегистрирован.';
     }
     if (message.contains('email not confirmed')) {
-      return 'Сначала подтвердите почту.';
+      return 'Аккаунт ожидает активации. Обратитесь к администратору приложения.';
     }
     if (message.contains('password')) return 'Проверьте пароль: ${e.message}';
     return e.message;
@@ -374,7 +373,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Персональные данные',
+                      'Личные сведения',
                       style: TextStyle(
                         color: appGreen,
                         fontWeight: FontWeight.w700,
@@ -383,7 +382,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     const SizedBox(height: 6),
                     AppField(
                       label: 'Рост (см)',
-                      hint: '185 или 1,85 м',
+                      hint: '190',
                       controller: _height,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -391,7 +390,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     ),
                     AppField(
                       label: 'Вес (кг)',
-                      hint: '77',
+                      hint: '85',
                       controller: _weight,
                       keyboardType: TextInputType.number,
                     ),
@@ -525,10 +524,19 @@ class _ProfilePageState extends State<ProfilePage> {
               AppCard(
                 child: Column(
                   children: [
-                    const CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Color(0xFFE8F7E9),
-                      backgroundImage: AssetImage('assets/profile_avatar.png'),
+                    ClipOval(
+                      child: SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: Transform.scale(
+                          scale: 1.7,
+                          alignment: const Alignment(0, -0.5),
+                          child: Image.asset(
+                            'assets/profile_avatar.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -555,60 +563,66 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 14),
-              const AppCard(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Активность',
-                    style: TextStyle(
-                      color: appGreen,
-                      fontWeight: FontWeight.w700,
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'История расчетов',
+                      style: TextStyle(
+                        color: appGreen,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder<List<CalculationRecord>>(
-                future: _history,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(30),
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return AppCard(
-                      child: Column(
-                        children: [
-                          const Text('Не удалось загрузить историю.'),
-                          TextButton(
-                            onPressed: () => setState(
-                              () => _history = widget.repository.list(),
+                    const Divider(height: 30, color: Color(0xFFD0D0D0)),
+                    FutureBuilder<List<CalculationRecord>>(
+                      future: _history,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
                             ),
-                            child: const Text('Повторить'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  final records = snapshot.data ?? [];
-                  if (records.isEmpty) {
-                    return const AppCard(
-                      child: Text('Пока нет сохранённых расчётов.'),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      for (final record in records) ...[
-                        _HistoryCard(record: record),
-                        const SizedBox(height: 12),
-                      ],
-                    ],
-                  );
-                },
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Column(
+                            children: [
+                              const Text('Не удалось загрузить историю.'),
+                              TextButton(
+                                onPressed: () => setState(
+                                  () => _history = widget.repository.list(),
+                                ),
+                                child: const Text('Повторить'),
+                              ),
+                            ],
+                          );
+                        }
+                        final records = snapshot.data ?? [];
+                        if (records.isEmpty) {
+                          return const Text('Пока нет сохранённых расчётов.');
+                        }
+                        return Column(
+                          children: [
+                            for (
+                              var index = 0;
+                              index < records.length;
+                              index++
+                            ) ...[
+                              if (index > 0)
+                                const Divider(
+                                  height: 30,
+                                  color: Color(0xFFD0D0D0),
+                                ),
+                              _HistoryEntry(record: records[index]),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -618,45 +632,55 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.record});
+class _HistoryEntry extends StatelessWidget {
+  const _HistoryEntry({required this.record});
 
   final CalculationRecord record;
 
   @override
   Widget build(BuildContext context) {
     final local = record.createdAt.toLocal();
-    final date =
-        '${local.day.toString().padLeft(2, '0')}.'
-        '${local.month.toString().padLeft(2, '0')}.${local.year}';
+    const months = [
+      'января',
+      'февраля',
+      'марта',
+      'апреля',
+      'мая',
+      'июня',
+      'июля',
+      'августа',
+      'сентября',
+      'октября',
+      'ноября',
+      'декабря',
+    ];
+    final date = '${local.day} ${months[local.month - 1]} ${local.year} год';
     final time =
         '${local.hour.toString().padLeft(2, '0')}:'
         '${local.minute.toString().padLeft(2, '0')}';
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Время расчёта', style: TextStyle(color: _muted)),
-          Text(
-            '$date, $time',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _metric('Рост', '${record.heightCm}'),
-              _metric('Вес', '${record.weightKg}'),
-              _metric('Индекс массы тела', record.bmi.toStringAsFixed(2)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Text('Рекомендация', style: TextStyle(color: _muted)),
-          Text(
-            record.recommendation,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Время расчёта', style: TextStyle(color: _muted)),
+        Text(
+          '$date, $time',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            _metric('Рост', '${record.heightCm}'),
+            _metric('Вес', '${record.weightKg}'),
+            _metric('Индекс массы тела', record.bmi.toStringAsFixed(2)),
+          ],
+        ),
+        const SizedBox(height: 14),
+        const Text('Рекомендация', style: TextStyle(color: _muted)),
+        Text(
+          record.recommendation,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 
@@ -728,7 +752,7 @@ class AppField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-            errorMaxLines: 2,
+        errorMaxLines: 2,
         labelStyle: const TextStyle(color: _muted, fontSize: 13),
         hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13),
         floatingLabelBehavior: FloatingLabelBehavior.always,
